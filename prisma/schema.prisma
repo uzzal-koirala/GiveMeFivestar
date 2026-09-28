@@ -1,0 +1,308 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+// URL lives in prisma.config.ts (Prisma 7)
+datasource db {
+  provider = "sqlite"
+}
+
+// Business owner using the platform
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  businessName String
+  phone        String?
+  avatar       Bytes?  // small square JPEG (resized in the browser)
+  avatarAt     DateTime? // last change, used to bust the image cache
+  passwordHash String
+  emailVerifiedAt DateTime? // owners must confirm their email with a code before they can sign in
+  otpHash      String?      // sha256 of the current 6-digit code
+  otpExpiresAt DateTime?
+  otpSentAt    DateTime?    // resend cooldown
+  otpAttempts  Int          @default(0)
+  role         String       @default("owner") // "owner" | "super_admin"
+  plan         String       @default("free")  // free | pro | business (changed by the super admin after payment)
+  planExpiresAt DateTime?   // paid plans end here, then count as free; null = no end (free plan)
+  credits      Int          @default(100)     // AI reviews left; each generated review uses 1
+  bonusCredits Int         @default(0)       // extra AI reviews a super admin gave; used after the plan's own allowance, never reset
+  suspended    Boolean      @default(false)   // blocked by a super admin: no login, review page offline
+  suspendedAt  DateTime?
+  adminNote    String       @default("")      // private note, only super admins see it
+  createdAt    DateTime     @default(now())
+  link         ReviewLink?
+  ads          AdRequest[]
+  tickets      Ticket[]
+  sessions     Session[]
+  payments     PaymentRequest[]
+  planChanges  PlanChange[]
+  standOrders  StandOrder[]
+  planChosenAt DateTime?    // set once the owner has picked a plan (and, for paid plans, it was approved); null = show the plan step
+}
+
+// Login sessions. Only a SHA-256 hash of the cookie token is stored.
+model Session {
+  id        String   @id // sha256(token)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Exactly one per business. googleReviewUrl is locked once set; only a super admin can change it.
+model ReviewLink {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  businessName    String
+  googleReviewUrl String
+  products        String       @default("[]") // JSON array of products/services customers pick from
+  description     String       @default("") // about the business, used by AI to write reviews
+  tone            String       @default("friendly") // friendly | professional | enthusiastic
+  language        String       @default("en")       // en | ne | mix
+  aiInstructions  String       @default("")         // owner's extra guidance for the AI
+  keywords        String       @default("[]")       // JSON array of words the AI should work into reviews
+  // review page design (Pro and Business): brand colour + header background image
+  themeColor      String       @default("")         // "#1e3a8a"; empty = standard navy
+  bgImage         Bytes?
+  bgImageType     String?
+  bgImageAt       DateTime?
+  location        String       @default("")
+  detailsOptional Boolean      @default(false) // customers may skip "Tell us about you"
+  detailsHidden   Boolean      @default(false) // "Tell us about you" is not shown at all
+  collectOnly     Boolean      @default(false) // just collect customer details + rating, no AI review
+  facebookUrl     String       @default("")
+  instagramUrl    String       @default("")
+  tiktokUrl       String       @default("")
+  websiteUrl      String       @default("")
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  submissions     Submission[]
+}
+
+// A customer who opened the link and generated a review
+model Submission {
+  id            String     @id @default(cuid())
+  linkId        String
+  link          ReviewLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  customerName  String
+  customerPhone String
+  location      String     @default("")
+  product       String
+  rating        Int        @default(5) // 1-5 stars the customer chose
+  generatedText String     @default("") // review the customer picked (or first draft); empty in collect-only mode
+  feedback      String     @default("") // optional comment written by the customer (collect-only mode)
+  adId          String?    // AdRequest that brought this review; null = came from the QR/link
+  source        String     @default("qr") // qr = customer used the page, import = added from a CSV
+  createdAt     DateTime   @default(now())
+}
+
+// Paid ad campaign: owner asks for N reviews, pays per delivered review.
+// Price is copied from the admin-set rate at request time so later changes don't affect it.
+model AdRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews        Int
+  delivered      Int       @default(0)
+  pricePerReview Int
+  notes          String    @default("")
+  status         String    @default("pending") // pending | running | completed | rejected
+  // Manual payment (no gateway yet): owner uploads proof, super admin approves
+  paymentMethod  String?   // esewa | khalti | bank
+  paymentRef     String?   // transaction ID
+  paymentProof   String?   // uploaded file name
+  paymentProofData Bytes?
+  paymentProofType String?
+  paymentStatus  String    @default("submitted") // submitted | approved | rejected
+  noticeSeen     Boolean   @default(false) // owner closed the "payment approved" notice
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+}
+
+// Support tickets raised by business owners
+model Ticket {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  category  String
+  priority  String          @default("normal") // low | normal | urgent
+  status    String          @default("open")   // open | in_progress | resolved | closed
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  messages  TicketMessage[]
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fromStaff  Boolean  @default(false)
+  body       String
+  attachment String?  // uploaded file name
+  attachmentData Bytes?
+  attachmentType String?
+  createdAt  DateTime @default(now())
+}
+
+// Manual payments for plan upgrades and AI review top-ups (no gateway yet).
+// The owner uploads proof; the super admin approves and then applies the plan/credits.
+model PaymentRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   // plan | topup
+  item      String   // plan id + cycle (e.g. "pro:yearly") or top-up pack id
+  amount    Int      // NPR
+  method    String   // esewa | khalti | bank
+  txnId     String   @default("")
+  proofName String
+  proofType String
+  proofData Bytes
+  status    String   @default("submitted") // submitted | approved | rejected
+  noticeSeen Boolean  @default(false) // owner closed the "payment approved" notice
+  decidedAt  DateTime? // when a super admin approved or rejected it
+  decidedBy  String   @default("") // that admin's name
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Platform settings the super admin edits (ad price, payment accounts + QR codes). Values are JSON.
+model Setting {
+  key   String @id
+  value String
+}
+
+// Every plan change: by an admin, a purchase approved by an admin, or set when the account was created
+model PlanChange {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromPlan  String    // the plan they were effectively on (an expired plan counts as free)
+  toPlan    String
+  months    Int       @default(0)
+  expiresAt DateTime? // new end date; null for Free
+  source    String    // admin | purchase | created
+  byName    String    @default("") // the super admin who made or approved it
+  amount    Int       @default(0)  // purchases only
+  method    String    @default("")
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// QR code stand orders: paid manually, then printed, shipped and delivered by the team
+model StandOrder {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quantity   Int
+  amount     Int       // NPR, delivery included
+  design     String    // standard | custom
+  designName String?
+  designType String?
+  designData Bytes?
+  fullName   String
+  phone      String
+  province   String
+  district   String
+  city       String
+  address    String
+  landmark   String    @default("")
+  notes      String    @default("")
+  method     String
+  txnId      String    @default("")
+  proofName  String
+  proofType  String
+  proofData  Bytes
+  status     String    @default("submitted") // submitted | printing | shipped | delivered | rejected
+  decidedAt  DateTime?
+  decidedBy  String    @default("")
+  shippedAt  DateTime?
+  deliveredAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Messages sent from the contact form on the public website
+model ContactMessage {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String
+  email     String    @default("")
+  business  String    @default("")
+  city      String    @default("")
+  topic     String
+  message   String
+  status    String    @default("new") // new | handled
+  handledAt DateTime?
+  handledBy String    @default("")
+  createdAt DateTime  @default(now())
+}
+
+// ---- Website content the super admin manages ----
+model Testimonial {
+  id        String    @id @default(cuid())
+  name      String
+  role      String    @default("") // e.g. Owner
+  business  String
+  city      String    @default("")
+  quote     String
+  rating    Int       @default(5)
+  photo     Bytes?
+  photoAt   DateTime?
+  published Boolean   @default(false)
+  sort      Int       @default(0)
+  createdAt DateTime  @default(now())
+}
+
+model JobPosition {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  title      String
+  department String
+  location   String
+  type       String   // Full-time | Part-time | Internship | Contract
+  salary     String   @default("")
+  summary    String
+  body       String   // simple formatting: ## headings, - lists, **bold**
+  published  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model BlogPost {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  title          String
+  excerpt        String
+  body           String    // simple formatting: ## headings, - lists, **bold**, [links](https://…)
+  tags           String    @default("") // comma separated
+  author         String    @default("")
+  cover          Bytes?
+  coverAt        DateTime?
+  seoTitle       String    @default("")
+  seoDescription String    @default("")
+  published      Boolean   @default(false)
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model BrandLogo {
+  id        String   @id @default(cuid())
+  name      String
+  url       String   @default("") // optional link to the brand's site
+  logo      Bytes // PNG, keeps transparency
+  logoAt    DateTime @default(now())
+  published Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+}

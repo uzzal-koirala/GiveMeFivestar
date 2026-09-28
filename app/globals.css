@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
+.auth-dialog[open] {
+  animation: pop 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.auth-dialog[open]::backdrop {
+  animation: fade 0.25s ease-out;
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-dialog[open], .auth-dialog[open]::backdrop { animation: none; }
+}
+
+.filter-pop {
+  animation: drop 0.15s ease-out;
+}
+@keyframes drop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .filter-pop { animation: none; }
+}
+
+.tab-fade {
+  animation: tab-in 0.25s ease-out;
+}
+.tag-pop {
+  animation: drop 0.15s ease-out;
+}
+@keyframes tab-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-fade, .tag-pop { animation: none; }
+}
+
+/* Scrollable without a visible scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Landing hero: content eases in, mockup cards drift gently */
+.hero-in {
+  animation: tab-in 0.6s ease-out both;
+}
+.hero-phone {
+  animation: tab-in 0.8s 0.15s ease-out both;
+}
+.hero-float {
+  animation: float 6s ease-in-out infinite;
+}
+.hero-float-slow {
+  animation: float 8s 1s ease-in-out infinite;
+}
+@keyframes float {
+  50% { transform: translateY(-10px); }
+}
+/* Hero headline: phrase slides up, progress bar fills until the next one */
+.word-in {
+  animation: word-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes word-in {
+  from { transform: translateY(70%); opacity: 0; filter: blur(4px); }
+}
+.word-bar {
+  animation: word-bar linear both;
+}
+@keyframes word-bar {
+  from { width: 0; }
+  to { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-in, .hero-phone, .hero-float, .hero-float-slow, .word-in, .word-bar { animation: none; }
+}
+
+/* Cookie notice slides up from the bottom */
+.cookie-in {
+  animation: cookie-up 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes cookie-up {
+  from { opacity: 0; transform: translateY(24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cookie-in { animation: none; }
+}
+
+/* Plan step: waiting + approved screens */
+.wait-ring { animation: wait-ring 2.4s ease-out infinite; }
+@keyframes wait-ring { from { transform: scale(0.7); opacity: 0.9; } to { transform: scale(1.5); opacity: 0; } }
+.wait-flip { animation: wait-flip 2.4s ease-in-out infinite; }
+@keyframes wait-flip { 0%, 40% { transform: rotate(0); } 50%, 90% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
+.wait-bob { animation: wait-bob 1.6s ease-in-out infinite; }
+@keyframes wait-bob { 50% { transform: translateY(-2px) scale(1.1); } }
+.wait-dot { animation: wait-dot 1.2s ease-in-out infinite; }
+@keyframes wait-dot { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
+.confetti { animation: confetti linear infinite; transform: translateY(-20px); }
+@keyframes confetti { to { transform: translateY(260px) rotate(540deg); opacity: 0; } }
+.pop-in { animation: pop-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes pop-in { from { transform: scale(0.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .wait-ring, .wait-flip, .wait-bob, .wait-dot, .confetti, .pop-in { animation: none; }
+  .confetti { display: none; }
+}
+
+.notice-in { animation: tab-in 0.35s ease-out; }
+@media (prefers-reduced-motion: reduce) { .notice-in { animation: none; } }
+
+/* Free-plan badge on review pages: slides in, then a gentle bob */
+.badge-float { animation: badge-in 0.5s 0.6s ease-out both, badge-bob 4s 1.2s ease-in-out infinite; }
+@keyframes badge-in { from { opacity: 0; transform: translateY(16px); } }
+@keyframes badge-bob { 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .badge-float { animation: none; } }
+
+/* How it works: scanning line over the QR, and a line of text being "typed" */
+.scan-line { animation: scan 2.2s ease-in-out infinite; }
+@keyframes scan { 50% { transform: translateY(62px); } }
+.type-bar { animation: type 2.4s ease-in-out infinite; width: 30%; }
+@keyframes type { 0% { width: 10%; } 70%, 100% { width: 75%; } }
+@media (prefers-reduced-motion: reduce) { .scan-line, .type-bar { animation: none; } }
+
+/* "momo near me" phone mockup: shrink the whole thing evenly on phones */
+@media (max-width: 639px) {
+  .map-mock { zoom: 0.76; }
+}
+
+/* Smooth in-page scrolling (page-to-page navigation stays instant via data-scroll-behavior on <html>) */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* Scroll reveal, added by MotionFx only to sections below the fold */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* Trailing cursor (mouse only, public pages) */
+.fx-dot, .fx-ring { position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+.fx-dot { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 9999px; background: #fbbf24; box-shadow: 0 0 0 2px rgba(23, 37, 84, 0.25); }
+.fx-ring { width: 36px; height: 36px; margin: -18px 0 0 -18px; }
+.fx-ring::after {
+  content: ""; position: absolute; inset: 0; border-radius: 9999px; border: 1.5px solid rgba(30, 58, 138, 0.55);
+  transition: transform 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
+}
+.fx-ring[data-state="hot"]::after { transform: scale(1.6); background: rgba(251, 191, 36, 0.18); border-color: rgba(245, 158, 11, 0.9); }
+.fx-ring.press::after { transform: scale(0.8); }
+html.fx-cursor, html.fx-cursor * { cursor: none; }
+html.fx-cursor :is(input, textarea, [contenteditable="true"]) { cursor: text; }
+
+/* Mobile menu items slide in one after another when the panel opens */
+.menu-item { opacity: 0; transform: translateX(24px); transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+[data-open] .menu-item { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .menu-item, #mobile-menu { transition: none !important; }
+}
+/* Open popups (<dialog>) sit in the browser's top layer, above the custom cursor, so use the normal cursor there */
+html.fx-cursor dialog[open], html.fx-cursor dialog[open] * { cursor: auto; }
+html.fx-cursor dialog[open] :is(a, button, summary, label, select, [role=button]), html.fx-cursor dialog[open] :is(a, button, summary, label, [role=button]) * { cursor: pointer; }
+html.fx-cursor dialog[open] :is(input, textarea, [contenteditable="true"]) { cursor: text; } /* after the pointer rule, same specificity, so fields inside labels keep the text cursor */

@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.env
+.env.local
+*.db
+*.db-journal
+next-env.d.ts
+
+# Prisma client (generated)
+lib/generated
+
+# build caches
+*.tsbuildinfo
+.env*.local
